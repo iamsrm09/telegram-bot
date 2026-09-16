@@ -9,15 +9,15 @@ TOKEN = os.getenv("TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_KEY") or os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_KEY)
 
-# Dummy web server for Render Web Service
-app_flask = Flask(__name__)
-@app_flask.route('/')
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
 def home():
     return "Bot is Live!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    app_flask.run(host='0.0.0.0', port=port)
+    flask_app.run(host='0.0.0.0', port=port)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bot is live! Bolo kya chahiye?")
@@ -33,9 +33,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error: {e}")
 
 def main():
-    # Start Flask in background
     threading.Thread(target=run_flask, daemon=True).start()
-    # Start Bot
     print("Bot Started...")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
