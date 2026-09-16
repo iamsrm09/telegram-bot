@@ -1,38 +1,69 @@
-import os, asyncio, threading
+import os
+import asyncio
+import threading
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from openai import AsyncOpenAI
 
 TOKEN = os.getenv("TOKEN")
-client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
+GROQ_KEY = os.getenv("GROQ_API_KEY")
 
-app_flask = Flask(__name__)
+flask_app = Flask(__name__)
 @flask_app.route('/')
-def home(): return "Live"
-threading.Thread(target=lambda: app_flask.run(host='0.0.0.0', port=int(os.getenv("PORT",10000))), daemon=True).start()
+def home():
+    return "Bot is Live"
 
-async def start(u,c):
-    await u.message.reply_text("🎬 Bot Online!\n/ask hello\n/movie action")
+def run_flask():
+    flask_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
-async def ask(u,c):
-    q=" ".join(c.args) or u.message.text.replace("/ask","").replace("/movie","")
-    await c.bot.send_chat_action(u.effective_chat.id,"typing")
-    for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]:
+client = AsyncOpenAI(api_key=GROQ_KEY, base_url="https://api.groq.com/openai/v1") if GROQ_KEY else None
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot Online! Send /ask hello")
+
+async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = " ".join(context.args) if context.args else update.message.text
+    text = text.replace("/ask","").replace("/movie","").strip()
+    if not text:
+        text = "Hello"
+
+    if not client:
+        await update.message.reply_text("GROQ_API_KEY is missing in Render")
+        return
+
+    await context.bot.send_chat_action(update.effective_chat.id, "typing")
+    try:
+        resp = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role":"user","content":text}]
+        )
+        await update.message.reply_text(resp.choices[0].message.content)
+    except Exception as e:
+        # Backup model try
         try:
-            r=await client.chat.completions.create(model=model, messages=[{"role":"user","content":q}])
-            await u.message.reply_text(r.choices[0].message.content)
-            return
-        except: continue
-    await u.message.reply_text("All models busy, try again in 10 sec")
+            resp = await client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[{"role":"user","content":text}]
+            )
+            await update.message.reply_text(resp.choices[0].message.content)
+        except Exception as e2:
+            await update.message.reply_text(f"Error: {e2}")
 
 def main():
-    try: asyncio.get_event_loop()
-    except: asyncio.set_event_loop(asyncio.new_event_loop())
-    app=ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start",start))
-    app.add_handler(CommandHandler("ask",ask))
-    app.add_handler(CommandHandler("movie",ask))
+    threading.Thread(target=run_flask, daemon=True).start()
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("ask", ask))
+    app.add_handler(CommandHandler("movie", ask))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask))
+    print("Bot Started")
     app.run_polling()
-if __name__=="__main__": main()
+
+if __name__ == "__main__":
+    main()
