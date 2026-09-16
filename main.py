@@ -1,13 +1,11 @@
 import os
+import asyncio
 import threading
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from openai import OpenAI
 
 TOKEN = os.getenv("TOKEN")
-OPENAI_KEY = os.getenv("OPENAI_KEY") or os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_KEY)
 
 flask_app = Flask(__name__)
 
@@ -20,21 +18,24 @@ def run_flask():
     flask_app.run(host='0.0.0.0', port=port)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bot is live! Bolo kya chahiye?")
+    await update.message.reply_text("Bot is Live! Fix ho gaya ✅ Ab reply kar raha hu")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": update.message.text}]
-        )
-        await update.message.reply_text(resp.choices[0].message.content)
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
+    await update.message.reply_text(f"You said: {update.message.text}")
 
 def main():
+    # Flask ko background me chalao
     threading.Thread(target=run_flask, daemon=True).start()
-    print("Bot Started...")
+    
+    # Yeh line is error ko fix karegi
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+    print(f"TOKEN found: {bool(TOKEN)}")
+    print("Starting polling...")
+    
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
