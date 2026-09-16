@@ -5,45 +5,46 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from openai import AsyncOpenAI
 
 TOKEN = os.getenv("TOKEN")
-GROQ_KEY = os.getenv("GROQ_API_KEY")
-client = AsyncOpenAI(api_key=GROQ_KEY, base_url="https://api.groq.com/openai/v1") if GROQ_KEY else None
+client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 
 flask_app = Flask(__name__)
 @flask_app.route('/')
-def home(): return "Film4you Pro Live!"
+def home(): return "Live"
+threading.Thread(target=lambda: flask_app.run(host='0.0.0.0', port=int(os.getenv("PORT",10000))), daemon=True).start()
 
-def run_flask():
-    flask_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+async def start(u,c):
+    await u.message.reply_text("🎬 Film4you Bot Online!\n\n/ask - Chat with AI\n/movie - Movie suggestion\nJust type anything!")
 
-# --- COMMANDS ---
+async def ask(u,c):
+    q = " ".join(c.args) or u.message.text
+    if not q or q.startswith("/"):
+        if q.startswith("/ask"): q = q.replace("/ask","")
+        else: q = "Hello"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎬 **Welcome to Film4you Bot!**\n\n"
-        "Your personal AI movie & chat assistant.\n\n"
-        "**Available Commands:**\n"
-        "💬 /ask - Chat with AI\n"
-        "🎬 /movie <genre> - Movie suggestion\n"
-        "🎨 /imagine <idea> - Generate image\n"
-        "📖 /help - Show help\n"
-        "ℹ️ /about - About me\n\n"
-        "Just send any message and I'll reply instantly!"
-    )
+    await c.bot.send_chat_action(u.effective_chat.id,"typing")
+    try:
+        r = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role":"user","content":q}]
+        )
+        await u.message.reply_text(r.choices[0].message.content)
+    except Exception as e:
+        # Backup model
+        try:
+            r = await client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role":"user","content":q}])
+            await u.message.reply_text(r.choices[0].message.content)
+        except Exception as e2:
+            await u.message.reply_text(f"Error: {e2}")
 
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "📖 **Help Guide**\n\n"
-        "1. `/ask What is Inception about?`\n"
-        "2. `/movie action` - Get action movie\n"
-        "3. `/imagine Iron Man poster`\n"
-        "4. Type anything - Direct chat\n\n"
-        "Bot is powered by Groq Llama 3.3 - Super Fast & Free!"
-    )
+def main():
+    try: asyncio.get_event_loop()
+    except: asyncio.set_event_loop(asyncio.new_event_loop())
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("ask", ask))
+    app.add_handler(CommandHandler("movie", ask))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ask))
+    app.run_polling()
 
-async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "ℹ️ **Film4you Bot**\n\n"
-        "Version: 2.0 Pro\n"
-        "Model: Llama 3.3 70B (Groq)\n"
-        "Speed: Ultra Fast\n"
-        "Developer
+if __name__=="__main__":
+    main()
