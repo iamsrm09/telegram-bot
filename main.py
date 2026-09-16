@@ -38,7 +38,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_chat_action(update.effective_chat.id, "typing")
     try:
         resp = await client.chat.completions.create(
-            model="llama-3.1-70b-versatile", # Free aur best model
+            resp = await client.chat.completions.create(
+    model="llama-3.3-70b-versatile",, # Free aur best model
             messages=[
                 {"role":"system","content":"You are Film4you bot. Reply in same language as user. If Hindi, reply Hindi. If English, reply English. Be friendly."},
                 {"role":"user","content":query}
