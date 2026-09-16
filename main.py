@@ -1,41 +1,46 @@
 import os
-from flask import Flask
 import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from openai import OpenAI
 
 TOKEN = os.getenv("TOKEN")
-OPENAI_KEY = os.getenv("OPENAI_KEY")
-
+OPENAI_KEY = os.getenv("OPENAI_KEY") or os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_KEY)
 
-app = Flask(__name__)
-@app.route('/')
+# Dummy web server for Render Web Service
+app_flask = Flask(__name__)
+@app_flask.route('/')
 def home():
-    return "Bot is running!"
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hi! I am your AI Bot. Ask me anything.")
-
-async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_msg = update.message.text
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_msg}]
-        )
-        reply = response.choices[0].message.content
-    except Exception as e:
-        reply = f"Error: {e}"
-    await update.message.reply_text(reply)
+    return "Bot is Live!"
 
 def run_flask():
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app_flask.run(host='0.0.0.0', port=port)
 
-if __name__ == '__main__':
-    threading.Thread(target=run_flask).start()
-    bot_app = ApplicationBuilder().token(TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
-    bot_app.run_polling()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot is live! Bolo kya chahiye?")
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": update.message.text}]
+        )
+        await update.message.reply_text(resp.choices[0].message.content)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+def main():
+    # Start Flask in background
+    threading.Thread(target=run_flask, daemon=True).start()
+    # Start Bot
+    print("Bot Started...")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
