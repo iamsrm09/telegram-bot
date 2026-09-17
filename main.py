@@ -1,47 +1,28 @@
-import os, threading, asyncio
-from flask import Flask
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
-from openai import AsyncOpenAI
+import os
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from huggingface_hub import InferenceClient
 
-TOKEN = os.getenv("TOKEN")
-DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
+# Hugging Face ka free client
+HF_TOKEN = os.environ.get("HF_TOKEN")
+client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
 
-# Flask for Render Live status
-flask_app = Flask(__name__)
-@flask_app.route('/')
-def home(): return "Bot Live with DeepSeek!"
-threading.Thread(target=lambda: flask_app.run(host='0.0.0.0', port=int(os.environ.get("PORT",10000))), daemon=True).start()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎬 Namaste! Main Film4you AI hu. Koi bhi movie pucho, jaise - Pushpa 2 kab aayegi?")
 
-# DeepSeek client
-client = AsyncOpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
-
-async def start(update, context):
-    await update.message.reply_text("✅ Bot Live hai! DeepSeek se connected. Kuch bhi pucho.")
-
-async def chat(update, context):
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     try:
-        await context.bot.send_chat_action(update.effective_chat.id, "typing")
-        response = await client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "You are Film4you bot. Answer in Hindi + English mix, helpful."},
-                {"role": "user", "content": user_text}
-            ],
-            stream=False
-        )
-        reply = response.choices[0].message.content
-        await update.message.reply_text(reply[:4000])
+        prompt = f"You are Film4you AI, a helpful movie expert. Answer in Hindi (Hinglish). Question: {user_text}"
+        reply = client.text_generation(prompt, max_new_tokens=200, temperature=0.7)
+        await update.message.reply_text(reply)
     except Exception as e:
-        print(f"Error: {e}")
-        await update.message.reply_text(f"Error: {e}")
+        await update.message.reply_text(f"Thoda wait karo, soch raha hu... Error: {e}")
 
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
-    print("Bot polling with DeepSeek...")
-    app.run_polling()
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-if __name__ == "__main__":
-    main()
+print("Bot Started...")
+app.run_polling()
