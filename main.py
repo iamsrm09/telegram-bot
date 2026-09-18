@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from huggingface_hub import InferenceClient
 
 HF_TOKEN = os.getenv("HF_TOKEN")
-TOKEN = os.getenv("TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 client = InferenceClient(model="HuggingFaceH4/zephyr-7b-beta", token=HF_TOKEN)
 
@@ -22,7 +22,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}\nHF_TOKEN check karo Render me.")
 
-app = Application.builder().token(TOKEN).build()
+app = Application.builder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
