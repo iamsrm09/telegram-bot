@@ -9,12 +9,12 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 client = InferenceClient(model="HuggingFaceH4/zephyr-7b-beta", token=HF_TOKEN)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot Live hai! HuggingFace se connected.")
+    await update.message.reply_text("✅ Bot Live hai! HuggingFace se connected. Bolo kya chahiye?")
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        response = client.text_generation(f"<|user|>{update.message.text}<|assistant|>", max_new_tokens=300)
-        await update.message.reply_text(response)
+        ans = client.text_generation(f"<|user|>{update.message.text}<|assistant|>", max_new_tokens=300)
+        await update.message.reply_text(ans)
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
