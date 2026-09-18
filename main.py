@@ -7,8 +7,7 @@ from huggingface_hub import InferenceClient
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Ab ye model 100% chalega
-client = InferenceClient(model="mistralai/Mistral-7B-Instruct-v0.3", token=HF_TOKEN)
+client = InferenceClient(token=HF_TOKEN)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot Live hai! HuggingFace se connected.")
@@ -17,9 +16,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_text = update.message.text
         completion = client.chat.completions.create(
-            model="mistralai/Mistral-7B-Instruct-v0.3",
+            model="Qwen/Qwen2.5-7B-Instruct",
             messages=[{"role": "user", "content": user_text}],
-            max_tokens=400
+            max_tokens=500
         )
         ans = completion.choices[0].message.content
         await update.message.reply_text(ans)
