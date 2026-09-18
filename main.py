@@ -27,7 +27,8 @@ async def main():
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
-    await app.updater.idle()
+    # Bot ko zinda rakho
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
